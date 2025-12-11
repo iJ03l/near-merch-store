@@ -87,7 +87,7 @@ All runtime configuration lives in `bos.config.json`:
     "host": { "title": "Near Merch" },
     "ui": {
       "name": "marketplace_ui",
-      "development": "http://localhost:3000",
+      "development": "http://localhost:3002",
       "production": "https://cdn.example.com/ui/remoteEntry.js"
     },
     "api": {
@@ -111,7 +111,7 @@ All runtime configuration lives in `bos.config.json`:
 
 ```bash
 # Development
-bun dev              # All services (API: 3014, UI: 3000, Host: 3001)
+bun dev              # All services (API: 3014, UI: 3002, Host: 3001)
 bun dev:api          # API plugin only
 bun dev:ui           # UI remote only
 bun dev:host         # Host server only

@@ -48,7 +48,7 @@ Exposed as remote module for host consumption via `remoteEntry.js`:
 
 ## Available Scripts
 
-- `bun dev` - Start dev server (port 3000)
+- `bun dev` - Start dev server (port 3002)
 - `bun build` - Build for production
 - `bun preview` - Preview production build
 - `bun typecheck` - Type checking

@@ -47,7 +47,7 @@ The **entire system** is configured via `bos.config.json` - a runtime-loaded JSO
     },
     "ui": {
       "name": "marketplace_ui",
-      "development": "http://localhost:3000",
+      "development": "http://localhost:3002",
       "production": "https://cdn.example.com/ui/remoteEntry.js"
     },
     "api": {
@@ -349,14 +349,14 @@ bun --filter marketplace-api db:push
 bun dev
 # Starts:
 # - API: http://localhost:3014
-# - UI: http://localhost:3000
+# - UI: http://localhost:3002
 # - Host: http://localhost:3001 (proxies /api to :3000)
 ```
 
 **Individual services:**
 ```bash
 bun dev:api   # API only (port 3014)
-bun dev:ui    # UI only (port 3000)
+bun dev:ui    # UI only (port 3002)
 bun dev:host  # Host only (port 3001)
 ```
 
@@ -370,7 +370,7 @@ NODE_ENV=production bun dev:host
 ```
 
 The host reads `NODE_ENV` and loads URLs from `bos.config.json`:
-- `development` → `http://localhost:3000`, `http://localhost:3014`
+- `development` → `http://localhost:3002`, `http://localhost:3014`
 - `production` → CDN URLs
 
 ### Deployment
