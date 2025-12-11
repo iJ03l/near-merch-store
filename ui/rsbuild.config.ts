@@ -16,8 +16,10 @@ const bosConfig = JSON.parse(
   fs.readFileSync(path.resolve(__dirname, '../bos.config.json'), 'utf8')
 );
 
+const isProduction = process.env.NODE_ENV === 'production';
 const useRemoteApi = process.env.USE_REMOTE_API === 'true';
-const apiUrl = useRemoteApi
+
+const apiUrl = (isProduction || useRemoteApi)
   ? `${bosConfig.app.host.production}/api/rpc`
   : `${bosConfig.app.host.development}/api/rpc`;
 
@@ -41,8 +43,6 @@ function updateHostConfig(name: string, url: string) {
     );
   }
 }
-
-const isProduction = process.env.NODE_ENV === 'production';
 
 const plugins = [
   pluginReact(),

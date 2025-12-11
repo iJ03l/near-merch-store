@@ -12,6 +12,7 @@ import { BatchHandlerPlugin } from '@orpc/server/plugins';
 import { ZodToJsonSchemaConverter } from '@orpc/zod/zod4';
 import config from './rsbuild.config';
 import { initializePlugins } from './src/runtime';
+import { loadBosConfig } from './src/config';
 import { createRouter } from './src/routers';
 import { auth } from './src/lib/auth';
 
@@ -28,6 +29,7 @@ async function startServer() {
   const apiPort = Number(process.env.API_PORT) || 3000;
   const isDev = process.env.NODE_ENV !== 'production';
 
+  const bosConfig = await loadBosConfig();
   const plugins = await initializePlugins();
   const router = createRouter(plugins);
 
@@ -46,10 +48,10 @@ async function startServer() {
         schemaConverters: [new ZodToJsonSchemaConverter()],
         specGenerateOptions: {
           info: {
-            title: 'Host API',
+            title: bosConfig.title,
             version: '1.0.0',
           },
-          servers: [{ url: `http://localhost:${apiPort}/api` }],
+          servers: [{ url: `${bosConfig.hostUrl}/api` }],
         },
       }),
     ],
@@ -66,9 +68,8 @@ async function startServer() {
     '/*',
     cors({
       origin: process.env.CORS_ORIGIN?.split(',').map((o) => o.trim()) ?? [
-        'http://localhost:3000',
-        'http://localhost:3001',
-        'http://localhost:3002',
+        bosConfig.hostUrl,
+        bosConfig.ui.url,
       ],
       credentials: true,
     })
