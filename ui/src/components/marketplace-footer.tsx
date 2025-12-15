@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { COLLECTIONS } from "@/integrations/marketplace-api";
+// import { COLLECTIONS } from "@/integrations/marketplace-api"; // HIDDEN: Collections feature
 import logoFull from "@/assets/logo_full.png";
 
 export function MarketplaceFooter() {
@@ -19,9 +19,9 @@ export function MarketplaceFooter() {
               Building the future of blockchain technology, one block at a time.
             </p>
           </div>
-
-          <div>
-            <h4 className="font-semibold mb-4 text-foreground">Shop</h4>
+          {/* HIDDEN: Collections in footer - uncomment to restore */}
+          {/* <div>
+            <h4 className="font-semibold mb-4 text-black">Shop</h4>
             <div className="space-y-4 mt-4">
               {COLLECTIONS.map((c: string) => (
                 <Link
@@ -33,6 +33,18 @@ export function MarketplaceFooter() {
                   {c}
                 </Link>
               ))}
+            </div>
+          </div> */}
+          
+          <div>
+            <h4 className="font-semibold mb-4 text-black">Shop</h4>
+            <div className="space-y-4 mt-4">
+              <Link
+                to="/"
+                className="block text-black/60 hover:text-[#00ec97] transition-colors text-sm"
+              >
+                All Products
+              </Link>
             </div>
           </div>
 

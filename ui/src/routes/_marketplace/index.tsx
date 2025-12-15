@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
-import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
+import { createFileRoute, /* Link, */ useRouter } from "@tanstack/react-router"; // HIDDEN: Link for collections
 import {
-  ArrowRight,
+  // ArrowRight, // HIDDEN: Collections feature
   AlertCircle,
   ChevronLeft,
   ChevronRight,
@@ -15,9 +15,9 @@ import { useCart } from "@/hooks/use-cart";
 import { useFavorites } from "@/hooks/use-favorites";
 import {
   useSuspenseFeaturedProducts,
-  useSuspenseCollections,
+  // useSuspenseCollections, // HIDDEN: Collections feature
   productLoaders,
-  collectionLoaders,
+  // collectionLoaders, // HIDDEN: Collections feature
   type ProductCategory,
   type Product,
 } from "@/integrations/marketplace-api";
@@ -29,16 +29,17 @@ export const Route = createFileRoute("/_marketplace/")({
   loader: async () => {
     await queryClient.ensureQueryData(productLoaders.featured(8));
 
-    const listData = await queryClient.ensureQueryData(
-      collectionLoaders.list()
-    );
+// HIDDEN: Collections feature
+//     const listData = await queryClient.ensureQueryData(
+//       collectionLoaders.list()
+//     );
 
-    // Prefetch collection details so product counts can be derived from query cache.
-    await Promise.all(
-      listData.collections.map((c) =>
-        queryClient.ensureQueryData(collectionLoaders.detail(c.slug))
-      )
-    );
+//     // Prefetch collection details so product counts can be derived from query cache.
+//     await Promise.all(
+//       listData.collections.map((c) =>
+//         queryClient.ensureQueryData(collectionLoaders.detail(c.slug))
+//       )
+//     );
   },
   errorComponent: ({ error }) => {
     const router = useRouter();
@@ -80,10 +81,10 @@ function MarketplaceHome() {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const { data: featuredData } = useSuspenseFeaturedProducts(8);
-  const { data: collectionsData } = useSuspenseCollections();
+  // const { data: collectionsData } = useSuspenseCollections(); // HIDDEN: Collections feature
 
   const featuredProducts = featuredData.products;
-  const collections = collectionsData.collections;
+  // const collections = collectionsData.collections; // HIDDEN: Collections feature
 
   // Filter products by selected category
   const filteredProducts =
@@ -228,6 +229,7 @@ function MarketplaceHome() {
                       transitionDelay: "0.3s",
                     }}
                   >
+
                     <Link to="/collections">
                       <button className="bg-white text-black px-8 py-3 hover:bg-white/90 transition-colors flex items-center font-medium rounded-none tracking-[-0.48px]">
                         {slide.buttonText}
@@ -315,8 +317,8 @@ function MarketplaceHome() {
       </section>
 
       {/* == Collections Section == */}
-
-      <section className=" ">
+      {/* HIDDEN: Collections section on homepage - uncomment to restore */}
+      {/* <section className=" ">
         <div className="max-w-[1408px] mx-auto px-4 md:px-8 lg:px-16 py-12 md:py-20 lg:py-24">
           <div className="flex flex-col items-center mb-12 text-center">
             <h2 className="mb-4 font-bold text-3xl md:text-4xl tracking-tight">Shop by Collection</h2>
@@ -371,7 +373,7 @@ function MarketplaceHome() {
             })}
           </div>
         </div>
-      </section>
+      </section> */}
       {/* == End Collections Section == */}
 
       {/* == Products Section == */}
@@ -437,26 +439,6 @@ function MarketplaceHome() {
         isOpen={isCartSidebarOpen}
         onClose={() => setIsCartSidebarOpen(false)}
       />
-
-      {/* <section className="py-16 md:py-24 border-t border-[rgba(0,0,0,0.1)]">
-        <div className="max-w-[1408px] mx-auto px-4 md:px-8 text-center">
-          <h2 className="text-2xl md:text-3xl font-bold mb-4">
-            Join the NEAR Community
-          </h2>
-          <p className="text-[#717182] max-w-xl mx-auto mb-8">
-            Be part of the open web movement. Follow us for updates, exclusive
-            drops, and community events.
-          </p>
-          <div className="flex justify-center gap-4">
-            <Button variant="outline" className="border-neutral-950">
-              Twitter
-            </Button>
-            <Button variant="outline" className="border-neutral-950">
-              Discord
-            </Button>
-          </div>
-        </div>
-      </section> */}
     </div>
   );
 }
