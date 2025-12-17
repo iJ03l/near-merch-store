@@ -8,7 +8,9 @@ import {
   productLoaders,
   requiresSize,
   useProducts,
-  useSuspenseProduct
+  useSuspenseProduct,
+  type Product,
+  type ProductImage
 } from "@/integrations/marketplace-api";
 import { cn } from "@/lib/utils";
 import { queryClient } from "@/utils/orpc";
@@ -52,12 +54,79 @@ export const Route = createFileRoute("/_marketplace/products/$productId")({
 });
 
 function getOptionValue(
-  attributes: Array<{ name: string; value: string }>,
+  attributes: Array<{ name: string; value: string }> | undefined | null,
   optionName: string
 ): string | undefined {
-  return attributes.find(
+  return attributes?.find(
     (opt) => opt.name.toLowerCase() === optionName.toLowerCase()
   )?.value;
+}
+
+const COLOR_MAP: Record<string, string> = {
+  "Black": "#000000",
+  "White": "#FFFFFF",
+  "Navy": "#000080",
+  "Dark Grey Heather": "#333333",
+  "Sport Grey": "#808080",
+  "Blue": "#0000FF",
+  "Red": "#FF0000",
+  "Green": "#008000",
+  "Light": "#F0F0F0",
+  "Dark": "#1A1A1A",
+  "Heather": "#999999",
+  "Royal": "#4169E1",
+  "Orange": "#FFA500",
+  "Purple": "#800080",
+  "Pink": "#FFC0CB",
+  "Yellow": "#FFFF00",
+  "Gold": "#FFD700",
+  "Charcoal": "#36454F",
+  "Grey": "#808080",
+  "Gray": "#808080",
+};
+
+// Helper to get hex code from attribute if available
+function getAttributeHex(
+  attributes: Array<{ name: string; value: string }> | undefined,
+  optionName: string
+): string | undefined {
+  if (!attributes) return undefined;
+  const attr = attributes.find(
+    (opt) => opt.name.toLowerCase() === optionName.toLowerCase()
+  );
+  // Cast to specific type since the backend type might not have 'hex' yet in the schema definition
+  // until the user updates the backend.
+  return (attr as unknown as { hex?: string })?.hex;
+}
+
+function getProductColor(product: { title: string; variants?: Array<{ attributes?: Array<{ name: string; value: string }> }> }): string | undefined {
+  // 1. Try to find explicit Color attribute in first variant
+  const firstVariant = product.variants?.[0];
+  if (firstVariant?.attributes) {
+    // Try to get dynamic hex from API first
+    const apiHex = getAttributeHex(firstVariant.attributes, "Color");
+    if (apiHex) return apiHex;
+
+    const colorAttr = getOptionValue(firstVariant.attributes, "Color");
+    if (colorAttr) {
+      // Try strict match first
+      if (COLOR_MAP[colorAttr]) return COLOR_MAP[colorAttr];
+      // Try partial match on attribute value
+      for (const [name, hex] of Object.entries(COLOR_MAP)) {
+        if (colorAttr.toLowerCase().includes(name.toLowerCase())) {
+          return hex;
+        }
+      }
+    }
+  }
+
+  // 2. Fallback to title matching
+  for (const [name, hex] of Object.entries(COLOR_MAP)) {
+    if (product.title.toLowerCase().includes(name.toLowerCase())) {
+      return hex;
+    }
+  }
+  return undefined;
 }
 
 function ProductDetailPage() {
@@ -67,53 +136,89 @@ function ProductDetailPage() {
 
   const { data } = useSuspenseProduct(productId);
   const product = data.product;
+  const subProducts = product.subProducts || [product];
 
-  const availableVariants = product.variants || [];
+  const [selectedStyleId, setSelectedStyleId] = useState(product.id);
+  const currentStyle: Product = subProducts.find((p: Product) => p.id === selectedStyleId) || product;
+
+  // Derive variants from the currently selected style
+  const availableVariants = currentStyle.variants || [];
   const hasVariants = availableVariants.length > 0;
-  const defaultVariant = availableVariants[0];
 
-  const [selectedVariantId, setSelectedVariantId] = useState(defaultVariant?.id || "");
+  // Deduplicate sizes and colors from the CURRENT style
+  const uniqueSizes = Array.from(new Set(
+    availableVariants.map((v) => getOptionValue(v.attributes, "size") || v.title)
+  )).filter(Boolean) as string[];
+
+  const uniqueColors = Array.from(new Set(
+    availableVariants.map((v) => getOptionValue(v.attributes, "Color"))
+  )).filter(Boolean) as string[];
+
+  const [selectedSize, setSelectedSize] = useState<string>("");
+  const [selectedColor, setSelectedColor] = useState<string>("");
+
+  // Find variant matching selected style (currentStyle), selected size AND selected color
+  const selectedVariant = availableVariants.find((v) => {
+    const vSize = getOptionValue(v.attributes, "size") || v.title;
+    const vColor = getOptionValue(v.attributes, "Color");
+
+    const matchesSize = !selectedSize || vSize === selectedSize;
+    const matchesColor = !uniqueColors.length || !selectedColor || vColor === selectedColor;
+
+    return matchesSize && matchesColor;
+  }) || availableVariants[0];
+
+  const displayPrice = selectedVariant?.price || currentStyle.price;
+  const selectedVariantId = selectedVariant?.id;
+
   const [quantity, setQuantity] = useState(1);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerImageIndex, setViewerImageIndex] = useState(0);
-
-  const selectedVariant = availableVariants.find(v => v.id === selectedVariantId) || defaultVariant;
-  const displayPrice = selectedVariant?.price || product.price;
 
   const { data: relatedData } = useProducts({
     category: product.category,
     limit: 4,
   });
   const relatedProducts = (relatedData?.products ?? [])
-    .filter((p) => p.id !== product.id)
+    .filter((p) => p.id !== product.id && !subProducts.some((sp: Product) => sp.id === p.id))
     .slice(0, 3);
 
+  // Determine display images (filter out 'detail' type/blueprints)
+  const validImages = currentStyle.images.filter((img: ProductImage) => img.type !== "detail");
+
+  // STRICTLY prioritize images over design files.
+  const variantImage = validImages.find((img: ProductImage) => img.variantIds?.includes(selectedVariantId || ""));
+
+  let sortedImages = variantImage
+    ? [variantImage, ...validImages.filter((img: ProductImage) => img !== variantImage)]
+    : validImages;
+
+  if (productId === "printful-product-407012072" && sortedImages.length >= 2) {
+    const [first, second, ...rest] = sortedImages;
+    sortedImages = [second, first, ...rest];
+  }
+
   const getProductImages = () => {
-    if (product.images && product.images.length > 0) {
-      return product.images.map((img) => img.url);
-    }
-    const firstDesignFile = product.designFiles?.[0];
-    if (firstDesignFile) {
-      return [firstDesignFile.url];
-    }
-    const firstVariantFile = product.variants
-      .flatMap(v => v.fulfillmentConfig?.designFiles || [])
-      .find(f => f.url);
-    if (firstVariantFile) {
-      return [firstVariantFile.url];
+    if (sortedImages.length > 0) {
+      return sortedImages.map((img: ProductImage) => img.url);
     }
     return [];
   };
   const productImages = getProductImages();
+
+  // Favorites should track the MAIN product
   const isFavorite = favoriteIds.includes(product.id);
-  const needsSize = requiresSize(product.category) && hasVariants;
+
+  const needsSize = requiresSize(product.category) && hasVariants && uniqueSizes.length > 0;
 
   const handleAddToCart = () => {
-    const size = getOptionValue(selectedVariant?.attributes || [], "size")
-      || selectedVariant?.title
-      || "N/A";
+    const size = selectedSize || getOptionValue(selectedVariant?.attributes, "size") || "N/A";
     for (let i = 0; i < quantity; i++) {
-      addToCart(product.id, size);
+      if (selectedVariant?.id) {
+        addToCart(selectedVariant.id, size);
+      } else {
+        addToCart(currentStyle.id, size);
+      }
     }
   };
 
@@ -148,28 +253,21 @@ function ProductDetailPage() {
       <div className="max-w-[1408px] mx-auto px-4 md:px-8 lg:px-16 py-12">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
           <div className="w-full">
-            <div className={cn(
-              "gap-4",
-              productImages.length === 1
-                ? "flex"
-                : "grid grid-cols-2 aspect-square"
-            )}>
-              {productImages.map((img, i) => (
+            <div className="flex gap-4">
+              {productImages.length > 0 && (
                 <div
-                  key={i}
-                  className={cn(
-                    "bg-muted overflow-hidden cursor-pointer hover:opacity-90 transition-opacity",
-                    productImages.length === 1 ? "w-full aspect-square" : "w-full h-full"
-                  )}
-                  onClick={() => handleImageClick(i)}
+                  className="rounded-lg cursor-pointer hover:scale-[1.02] transition-all duration-300 w-full aspect-square relative shadow-[0_0_40px_-10px_rgba(0,0,0,0.1)] dark:shadow-[0_0_40px_-10px_rgba(255,255,255,0.15)]"
+                  onClick={() => handleImageClick(0)}
                 >
+
+                  <div className="absolute inset-0 bg-transparent" />
                   <img
-                    src={img}
+                    src={productImages[0]}
                     alt={product.title}
                     className="w-full h-full object-cover"
                   />
                 </div>
-              ))}
+              )}
             </div>
           </div>
 
@@ -203,26 +301,105 @@ function ProductDetailPage() {
 
             <div className="h-px bg-border" />
 
-            {needsSize && (
+            {/* Sub-product Style Selector (Merged Products) */}
+            {subProducts.length > 1 && (
+              <div className="space-y-3">
+                <label className="block tracking-[-0.48px]">Style</label>
+                <div className="flex flex-wrap gap-2">
+                  {subProducts.map((subProduct: Product) => {
+                    const isSelected = selectedStyleId === subProduct.id;
+                    return (
+                      <button
+                        key={subProduct.id}
+                        onClick={() => {
+                          setSelectedStyleId(subProduct.id);
+                          setSelectedSize("");
+                          setSelectedColor("");
+                        }}
+                        className={cn(
+                          "px-4 py-2 tracking-[-0.48px] transition-colors",
+                          isSelected
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-background border border-border hover:bg-muted"
+                        )}
+                      >
+                        {subProduct.title}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Single Product Color Selector (Variant Colors) */}
+            {uniqueColors.length > 0 && (
+              <div className="space-y-3">
+                <label className="block tracking-[-0.48px]">Color</label>
+                <div className="flex flex-wrap gap-2">
+                  {uniqueColors.map((color) => {
+                    // Try to find the specific variant that has this color to check for metadata
+                    // Ideally we'd map color -> hex in a separate pass, but finding one variant is enough
+                    const sampleVariant = availableVariants.find(v =>
+                      getOptionValue(v.attributes, 'Color') === color
+                    );
+                    const apiHex = getAttributeHex(sampleVariant?.attributes, 'Color');
+
+                    const hex = apiHex || COLOR_MAP[color] || "#808080"; // API Hex -> Local Map -> Fallback
+                    const isSelected = color === selectedColor; // Strict match
+
+                    return (
+                      <button
+                        key={color}
+                        onClick={() => setSelectedColor(color)}
+                        className={cn(
+                          "size-8 rounded-full border transition-all p-0.5 relative ring-offset-background",
+                          isSelected ? "border-primary ring-2 ring-primary ring-offset-2" : "border-transparent hover:border-border",
+                          "dark:ring-offset-background" // Ensure proper offset in dark mode
+                        )}
+                        title={color}
+                      >
+                        <div
+                          className="w-full h-full rounded-full border border-black/10 dark:border-white/20 shadow-sm"
+                          style={{ backgroundColor: hex }}
+                        />
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Size Selector */}
+            {hasVariants && uniqueSizes.length > 0 && (
               <div className="space-y-3">
                 <label className="block tracking-[-0.48px]">Size</label>
                 <div className="flex flex-wrap gap-2">
-                  {availableVariants.map((variant) => {
-                    const sizeValue = getOptionValue(variant.attributes, "size") || variant.title;
+                  {uniqueSizes.map((size) => {
+                    // Check availability for this size in current style
+                    const variantForSize = availableVariants.find(v => {
+                      const vSize = getOptionValue(v.attributes, "size") || v.title;
+                      const vColor = getOptionValue(v.attributes, "Color");
+
+                      const matchSize = vSize === size;
+                      const matchColor = !uniqueColors.length || !selectedColor || vColor === selectedColor;
+                      return matchSize && matchColor;
+                    });
+                    const isAvailable = variantForSize?.availableForSale;
+
                     return (
                       <button
-                        key={variant.id}
-                        onClick={() => setSelectedVariantId(variant.id)}
-                        disabled={!variant.availableForSale}
+                        key={size}
+                        onClick={() => setSelectedSize(size)}
+                        disabled={!isAvailable}
                         className={cn(
                           "px-4 py-2 tracking-[-0.48px] transition-colors",
-                          selectedVariantId === variant.id
+                          size === selectedSize
                             ? "bg-primary text-primary-foreground"
                             : "bg-background border border-border hover:bg-muted",
-                          !variant.availableForSale && "opacity-50 cursor-not-allowed line-through"
+                          !isAvailable && "opacity-50 cursor-not-allowed line-through"
                         )}
                       >
-                        {sizeValue}
+                        {size}
                       </button>
                     );
                   })}
