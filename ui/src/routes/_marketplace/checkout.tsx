@@ -7,6 +7,8 @@ import { useMutation } from '@tanstack/react-query';
 import { apiClient } from '@/utils/orpc';
 import { toast } from 'sonner';
 import { authClient } from '@/lib/auth-client';
+import { Checkbox } from '@/components/ui/checkbox';
+import { NearMark } from '@/components/near-mark';
 
 export const Route = createFileRoute("/_marketplace/checkout")({
   component: CheckoutPage,
@@ -15,6 +17,7 @@ export const Route = createFileRoute("/_marketplace/checkout")({
 function CheckoutPage() {
   const { cartItems, subtotal } = useCart();
   const [discountCode, setDiscountCode] = useState("");
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const navigate = useNavigate();
 
   const tax = subtotal * 0.08;
@@ -106,7 +109,7 @@ function CheckoutPage() {
                       </div>
                     }
                   >
-                    <p className="text-sm text-[#717182]">
+                    <div className="text-base text-right">
                       {item.size !== "N/A" && `Size: ${item.size} • `}Qty:{" "}
                       {item.quantity}
                     </p>
@@ -155,17 +158,40 @@ function CheckoutPage() {
           </div>
 
           <div>
-            <h2 className="text-base font-medium mb-6">
-              Choose Payment Method
-            </h2>
+            <div className="border border-border p-6 mb-6">
+              <div className="flex items-start gap-3">
+                <Checkbox 
+                  id="terms" 
+                  checked={acceptedTerms}
+                  onCheckedChange={(checked) => setAcceptedTerms(checked as boolean)}
+                  className="mt-0.5"
+                />
+                <label 
+                  htmlFor="terms" 
+                  className="text-sm leading-relaxed cursor-pointer select-none"
+                >
+                  By checking this box, you agree to our{' '}
+                  <Link 
+                    to="/terms-of-service" 
+                    className="underline hover:text-neutral-950 transition-colors"
+                  >
+                    Terms of Service
+                  </Link>
+                </label>
+              </div>
+            </div>
 
-            <div className="space-y-6">
+            {acceptedTerms && (
+              <>
+                <h2 className="text-base font-medium mb-6">
+                  Choose Payment Method
+                </h2>
+
+                <div className="space-y-6">
               <div className="w-full border border-border p-6 text-left relative opacity-50 cursor-not-allowed">
                 <div className="flex items-start gap-3">
-                  <div className="size-10 bg-[#00ec97] flex items-center justify-center flex-shrink-0">
-                    <svg className="size-6" fill="none" viewBox="0 0 24 24">
-                      <path d="M12 2L2 7v10l10 5 10-5V7L12 2z" fill="black" />
-                    </svg>
+                  <div className="size-10 bg-[#00ec97] flex items-center justify-center shrink-0">
+                    <NearMark className="size-6 text-black" />
                   </div>
 
                   <div className="flex-1">
@@ -192,7 +218,7 @@ function CheckoutPage() {
                 className="block w-full border border-border p-6 hover:border-neutral-950 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <div className="flex items-start gap-3">
-                  <div className="size-10 bg-[#d6d3ff] flex items-center justify-center flex-shrink-0">
+                  <div className="size-10 bg-[#d6d3ff] flex items-center justify-center shrink-0">
                     {checkoutMutation.isPending ? (
                       <div className="animate-spin size-5 border-2 border-[#635BFF]/30 border-t-[#635BFF] rounded-full" />
                     ) : (
@@ -219,6 +245,8 @@ function CheckoutPage() {
                 </p>
               </button>
             </div>
+              </>
+            )}
           </div>
         </div>
       </div>
