@@ -7,7 +7,6 @@ import {
   useSearchProducts,
   useProducts,
   productLoaders,
-  COLLECTIONS,
   type ProductCategory,
 } from '@/integrations/api';
 import { queryClient } from '@/utils/orpc';
@@ -36,7 +35,7 @@ function SearchPage() {
   const [activeFilter, setActiveFilter] = useState<string>(category || 'All');
   const [sortBy, setSortBy] = useState<SortOption>('Featured');
 
-  const filters = ['All', ...COLLECTIONS];
+  const filters = ['All'];
 
   const { data: searchData } = useSearchProducts(q || '', {
     category: (activeFilter !== 'All' ? activeFilter : undefined) as ProductCategory | undefined,
